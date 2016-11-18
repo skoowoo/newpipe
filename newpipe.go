@@ -74,14 +74,6 @@ func New(flag int) (pipe *Newpipe, err error) {
 		if ewfd, err = syscall.EpollCreate1(0); err != nil {
 			return
 		}
-
-		event := syscall.EpollEvent{
-			Fd:     int32(p[1]),
-			Events: syscall.EPOLLOUT,
-		}
-		if err = syscall.EpollCtl(ewfd, syscall.EPOLL_CTL_ADD, p[1], &event); err != nil {
-			return
-		}
 	}
 
 	return &Newpipe{
@@ -128,13 +120,23 @@ func (p *Newpipe) WaitRead(b []byte, msec int) (n int, err error) {
 			return 0, ErrReadTimeout
 		}
 
-		if n, err = syscall.Read(int(events[0].Fd), b); err != nil {
-			if err == syscall.EAGAIN {
-				continue
+		for {
+			m := 0
+			if m, err = syscall.Read(int(p.r.Fd()), b); err != nil {
+				if err == syscall.EAGAIN {
+					break
+				}
+				return
+			}
+
+			n += m
+			b = b[n:]
+			if len(b) == 0 {
+				return
 			}
 		}
-		return
 	}
+
 	return
 }
 
@@ -149,30 +151,56 @@ func (p *Newpipe) WaitWrite(b []byte, msec int) (n int, err error) {
 		return p.w.Write(b)
 	}
 
-	var (
-		events [1]syscall.EpollEvent
-		ready  int
-	)
+	wait := func() (e error) {
+		var (
+			events [1]syscall.EpollEvent
+			ready  int
+		)
+
+		event := syscall.EpollEvent{
+			Fd:     int32(p.w.Fd()),
+			Events: syscall.EPOLLOUT,
+		}
+
+		if e = syscall.EpollCtl(p.ewfd, syscall.EPOLL_CTL_ADD, int(p.w.Fd()), &event); e != nil {
+			return
+		}
+
+		for {
+			if ready, e = syscall.EpollWait(p.ewfd, events[:], msec); e != nil {
+				if e == syscall.EINTR {
+					continue
+				}
+			}
+			break
+		}
+
+		if ready == 0 {
+			return ErrWriteTimeout
+		}
+
+		return syscall.EpollCtl(p.ewfd, syscall.EPOLL_CTL_DEL, int(p.w.Fd()), &event)
+	}
 
 	for {
-		if ready, err = syscall.EpollWait(p.ewfd, events[:], msec); err != nil {
-			if err == syscall.EINTR {
+		m := 0
+		if m, err = syscall.Write(int(p.w.Fd()), b); err != nil {
+			if err == syscall.EAGAIN {
+				if err = wait(); err != nil {
+					return
+				}
 				continue
 			}
 			return
 		}
 
-		if ready == 0 {
-			return 0, ErrWriteTimeout
+		n += m
+		b = b[n:]
+		if len(b) == 0 {
+			return
 		}
-
-		if n, err = syscall.Write(int(events[0].Fd), b); err != nil {
-			if err == syscall.EAGAIN {
-				continue
-			}
-		}
-		return
 	}
+
 	return
 }
 
