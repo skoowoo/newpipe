@@ -15,7 +15,7 @@ func TestWriteBlockWhenRO(t *testing.T) {
 
 	go func() {
 		for {
-			if _, err := p.WaitWrite([]byte("1234567890"), 0); err != nil {
+			if _, err := p.Write([]byte("1234567890"), 0); err != nil {
 				t.Fatal(err)
 			}
 			c <- 1
@@ -40,7 +40,7 @@ func TestReadNonBlockWhenRO(t *testing.T) {
 
 	var buf [10]byte
 
-	if _, err := p.WaitRead(buf[:], 10000); err != nil {
+	if _, err := p.Read(buf[:], 10000); err != nil {
 		if err != ErrReadTimeout {
 			t.Error(err)
 		}
@@ -61,7 +61,7 @@ func TestReadNonBlockWhenRO2(t *testing.T) {
 	}
 
 	var buf [100]byte
-	if n, err := p.WaitRead(buf[:], 1000); err != nil {
+	if n, err := p.Read(buf[:], 1000); err != nil {
 		t.Error(err)
 	} else {
 		if n != 100 {
@@ -69,7 +69,7 @@ func TestReadNonBlockWhenRO2(t *testing.T) {
 		}
 	}
 
-	if _, err := p.WaitRead(buf[:], 1000); err != nil {
+	if _, err := p.Read(buf[:], 1000); err != nil {
 		if err != ErrReadTimeout {
 			t.Error(err)
 		}

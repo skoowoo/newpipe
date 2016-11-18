@@ -92,13 +92,8 @@ func (p *Newpipe) WriteFile() *os.File {
 	return p.w
 }
 
-// Read read from pipe, will block.
-func (p *Newpipe) Read(b []byte) (n int, err error) {
-	return p.WaitRead(b, -1)
-}
-
-// WaitRead read from pipe with timeout.
-func (p *Newpipe) WaitRead(b []byte, msec int) (n int, err error) {
+// Read read from pipe with timeout.
+func (p *Newpipe) Read(b []byte, msec int) (n int, err error) {
 	if p.erfd == -1 {
 		return p.r.Read(b)
 	}
@@ -140,13 +135,8 @@ func (p *Newpipe) WaitRead(b []byte, msec int) (n int, err error) {
 	return
 }
 
-// Write write data into pipe, will block.
-func (p *Newpipe) Write(b []byte) (n int, err error) {
-	return p.WaitWrite(b, -1)
-}
-
-// WaitWrite write data into pipe with timeout.
-func (p *Newpipe) WaitWrite(b []byte, msec int) (n int, err error) {
+// Write write data into pipe with timeout.
+func (p *Newpipe) Write(b []byte, msec int) (n int, err error) {
 	if p.ewfd == -1 {
 		return p.w.Write(b)
 	}
